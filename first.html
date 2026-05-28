@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>간편한 길 안내 서비스</title>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>간편한 길 안내 서비스</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +28,7 @@
                 <input type="text" id="destination-input" placeholder="목적지 입력">
                 <button id="search-btn">검색</button>
             </div>
+            
             <button id="mic-btn" class="giant-btn">
                 🎤
             </button>
@@ -31,5 +38,111 @@
             </button>
         </div>
     </div>
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <script>
+        // 변수 준비
+        let currentLocation = null; // 출발지(현 위치)를 저장할 공간
+        const destinationInput = document.getElementById('destination-input');
+        const statusText = document.getElementById('status-text');
+        const backgroundView = document.getElementById('background-view');
+
+        // ------------------------------------------
+        // [기능 1] 마이크 버튼 누르면 음성 인식하기
+        // ------------------------------------------
+        const micBtn = document.getElementById('mic-btn');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'ko-KR'; // 한국어 알아듣게 설정
+            
+            micBtn.addEventListener('click', () => {
+                statusText.innerText = "듣고 있습니다...";
+                recognition.start(); // 마이크 켜기
+            });
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                destinationInput.value = transcript; // 들은 내용을 입력창에 적어줌
+                statusText.innerText = "목적지를 확인해 주세요.";
+            };
+
+            recognition.onerror = () => {
+                statusText.innerText = "음성을 인식하지 못했습니다.";
+            };
+        } else {
+            micBtn.addEventListener('click', () => {
+                alert("이 브라우저에서는 음성 인식을 지원하지 않습니다.");
+            });
+        }
+
+        // ------------------------------------------
+        // [기능 2] 카메라 버튼 누르면 QR코드 스캔하기
+        // ------------------------------------------
+        const cameraBtn = document.getElementById('camera-btn');
+
+        cameraBtn.addEventListener('click', () => {
+            // 배경 글자를 지우고 카메라 화면(reader)을 띄움
+            backgroundView.innerHTML = '<div id="reader" style="width:100%; height:100%;"></div>';
+            
+            const html5QrCode = new Html5Qrcode("reader");
+            statusText.innerText = "QR 코드를 비춰주세요.";
+
+            // 스마트폰 뒷면 카메라 켜기
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText, decodedResult) => {
+                    // QR 스캔 성공 시!
+                    html5QrCode.stop(); // 카메라 끄기
+                    
+                    // QR 코드 안에 있던 글자(좌표 등)를 저장
+                    currentLocation = decodedText; 
+                    
+                    statusText.innerText = "위치 확인 완료!";
+                    backgroundView.innerHTML = '<p class="placeholder-text">현 위치가 파악되었습니다.<br>목적지를 입력하세요.</p>';
+                },
+                (errorMessage) => {
+                    // 스캔 중 화면에러 (무시해도 됨)
+                }
+            ).catch((err) => {
+                alert("카메라를 열 수 없습니다. 카메라 접근 권한을 확인해주세요.");
+            });
+        });
+
+        // ------------------------------------------
+        // [기능 3] 검색 버튼 누르면 목적지로 길 안내 시작
+        // ------------------------------------------
+        const searchBtn = document.getElementById('search-btn');
+
+        searchBtn.addEventListener('click', () => {
+            const destination = destinationInput.value;
+            
+            if (!currentLocation) {
+                alert("먼저 '현재 위치 알아보기' 버튼을 눌러 QR을 스캔해 주세요.");
+                return;
+            }
+            
+            if (destination.trim() === "") {
+                alert("목적지를 입력하거나 음성으로 말씀해 주세요.");
+                return;
+            }
+
+            statusText.innerText = "경로를 찾고 있습니다...";
+            
+            // 임시로 길 안내가 된 것처럼 1.5초 뒤에 화면을 바꿔주는 테스트 코드입니다.
+            // 나중에 여기에 카카오맵이나 Tmap 길안내 코드가 들어갑니다.
+            setTimeout(() => {
+                backgroundView.innerHTML = `
+                    <div style="text-align: center; color: #059669;">
+                        <h2>지도 영역입니다.</h2>
+                        <p><strong>${destination}</strong>(으)로 안내를 시작합니다!</p>
+                    </div>`;
+                statusText.innerText = "안내를 시작합니다.";
+            }, 1500);
+        });
+    </script>
 </body>
 </html>
